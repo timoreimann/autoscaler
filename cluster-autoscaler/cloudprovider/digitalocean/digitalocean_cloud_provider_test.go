@@ -30,6 +30,7 @@ import (
 )
 
 func testCloudProvider(t *testing.T, client *doClientMock) *digitaloceanCloudProvider {
+	t.Helper()
 	cfg := `{"cluster_id": "123456", "token": "123-123-123", "url": "https://api.digitalocean.com/v2", "version": "dev"}`
 
 	manager, err := newManager(bytes.NewBufferString(cfg))
@@ -82,6 +83,7 @@ func testCloudProvider(t *testing.T, client *doClientMock) *digitaloceanCloudPro
 	}
 
 	manager.client = client
+	mockSizeListerOnManager(manager)
 
 	provider, err := newDigitalOceanCloudProvider(manager, rl)
 	assert.NoError(t, err)

@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	apiv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider"
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider/digitalocean/godo"
@@ -392,6 +393,29 @@ func TestNodeGroup_Nodes(t *testing.T) {
 	})
 }
 
+func TestNodeGroup_TemplateNodeInfo(t *testing.T) {
+	ng := NodeGroup{
+		cpus:   1,
+		memory: 2048,
+	}
+
+	ni, err := ng.TemplateNodeInfo()
+	assert.NoError(t, err)
+	cap := ni.Node().Status.Capacity
+	assert.NotEmpty(t, cap)
+
+	cpus, ok := cap[apiv1.ResourceCPU]
+	assert.True(t, ok)
+	assert.Equal(t, "1", cpus.String())
+
+	wantMemory, err := resource.ParseQuantity("2Gi")
+	assert.NoError(t, err)
+
+	gotMemory, ok := cap[apiv1.ResourceMemory]
+	assert.True(t, ok)
+	assert.True(t, gotMemory.Equal(wantMemory), "got memory %q, want %q", gotMemory.String(), wantMemory.String())
+}
+
 func TestNodeGroup_Debug(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		client := &doClientMock{}
@@ -458,4 +482,13 @@ func (m *doClientMock) UpdateNodePool(ctx context.Context, clusterID, poolID str
 func (m *doClientMock) DeleteNode(ctx context.Context, clusterID, poolID, nodeID string, req *godo.KubernetesNodeDeleteRequest) (*godo.Response, error) {
 	args := m.Called(ctx, clusterID, poolID, nodeID, nil)
 	return args.Get(0).(*godo.Response), args.Error(1)
+}
+
+type doSizeListertMock struct {
+	mock.Mock
+}
+
+func (m *doSizeListertMock) List(ctx context.Context, opts *godo.ListOptions) ([]godo.Size, *godo.Response, error) {
+	args := m.Called(ctx, opts)
+	return args.Get(0).([]godo.Size), args.Get(1).(*godo.Response), args.Error(2)
 }

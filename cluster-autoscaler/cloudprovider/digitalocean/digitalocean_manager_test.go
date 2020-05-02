@@ -23,8 +23,26 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider/digitalocean/godo"
 )
+
+func mockSizeListerOnManager(m *Manager) {
+	sizeLister := &doSizeListertMock{}
+	sizeLister.On("List", context.Background(), mock.AnythingOfType("*godo.ListOptions")).Return(
+		[]godo.Size{
+			{
+				Slug:   "",
+				Memory: 2048,
+				Vcpus:  1,
+			},
+		},
+		&godo.Response{},
+		nil,
+	).Once()
+
+	m.sizeLister = sizeLister
+}
 
 func TestNewManager(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
@@ -100,6 +118,7 @@ func TestDigitalOceanManager_Refresh(t *testing.T) {
 		).Once()
 
 		manager.client = client
+		mockSizeListerOnManager(manager)
 		err = manager.Refresh()
 		assert.NoError(t, err)
 		assert.Equal(t, len(manager.nodeGroups), 4, "number of nodes do not match")
@@ -154,6 +173,7 @@ func TestDigitalOceanManager_RefreshWithNodeSpec(t *testing.T) {
 		).Once()
 
 		manager.client = client
+		mockSizeListerOnManager(manager)
 		err = manager.Refresh()
 		assert.NoError(t, err)
 		assert.Equal(t, len(manager.nodeGroups), 2, "number of node groups do not match")
